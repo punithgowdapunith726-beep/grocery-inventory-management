@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}Overview · FreshTrack{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">{{ today.strftime('%A, %B %d, %Y') }}</p>
+    <h1>Good day, {{ current_user.display_name.split()[0] }}.</h1>
+    <p>Here’s what needs your attention at {{ store.store_name }}.</p>
+  </div>
+  <a class="primary-button" href="{{ url_for('main.stock') }}">+ Record stock</a>
+</div>
+
+<section class="stat-grid">
+  <article class="stat">
+    <span class="stat-icon green">▦</span>
+    <p>Total products</p>
+    <strong>{{ product_count }}</strong>
+    <small>Active catalog items</small>
+  </article>
+  <article class="stat">
+    <span class="stat-icon amber">!</span>
+    <p>Low stock</p>
+    <strong>{{ low|length }}</strong>
+    <small>{{ 'Needs attention' if low else 'All levels healthy' }}</small>
+  </article>
+  <article class="stat">
+    <span class="stat-icon blue">₹</span>
+    <p>Inventory value</p>
+    <strong>₹ {{ '{:,.2f}'.format(value) }}</strong>
+    <small>At current unit cost</small>
+  </article>
+  <article class="stat">
+    <span class="stat-icon red">⌛</span>
+    <p>Expiring soon</p>
+    <strong>{{ expiring|length }}</strong>
+    <small>Within the next 14 days</small>
+  </article>
+</section>
+
+<section class="dashboard-grid">
+  <article class="panel chart-wide">
+    <header>
+      <div>
+        <h2>Sales pulse</h2>
+        <p>Revenue over the past 7 days (₹)</p>
+      </div>
+    </header>
+    <canvas id="trendChart" data-labels='{{ trend_labels|tojson }}' data-values='{{ trend_values|tojson }}'></canvas>
+  </article>
+  <article class="panel">
+    <header>
+      <div>
+        <h2>Stock by category</h2>
+        <p>Units currently on hand</p>
+      </div>
+    </header>
+    <canvas id="categoryChart" data-labels='{{ category_labels|tojson }}' data-values='{{ category_values|tojson }}'></canvas>
+  </article>
+  <article class="panel">
+    <header>
+      <div>
+        <h2>Recent movements</h2>
+        <p>Latest inventory activity</p>
+      </div>
+      <a href="{{ url_for('main.stock') }}">View all</a>
+    </header>
+    <div class="activity-list">
+      {% for x in recent %}
+      <div>
+        <span class="movement {{ x.movement_type }}">{{ '+' if x.movement_type == 'in' else '−' if x.movement_type == 'out' else '↺' }}</span>
+        <div>
+          <strong>{{ x.product.name }}</strong>
+          <small>{{ x.user.display_name }} · {{ x.created_at.strftime('%b %d, %H:%M') }}</small>
+        </div>
+        <b>{{ x.quantity }} {{ x.product.unit }}</b>
+      </div>
+      {% else %}
+      <div class="empty">No stock activity yet.</div>
+      {% endfor %}
+    </div>
+  </article>
+  <article class="panel">
+    <header>
+      <div>
+        <h2>Top sellers</h2>
+        <p>By units sold</p>
+      </div>
+    </header>
+    <div class="rank-list">
+      {% for label in top_labels %}
+      <div>
+        <span>{{ loop.index }}</span>
+        <strong>{{ label }}</strong>
+        <b>{{ top_values[loop.index0] }}</b>
+      </div>
+      {% else %}
+      <div class="empty">Sales will appear here.</div>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+{% endblock %}

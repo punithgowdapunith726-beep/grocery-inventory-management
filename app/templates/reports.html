@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Reports · FreshTrack{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">BUSINESS INTELLIGENCE & EXPORTS</p>
+    <h1>Reports & Analytics</h1>
+    <p>Export clean snapshots for accounting, purchasing, and business performance.</p>
+  </div>
+</div>
+
+<section class="stat-grid reports">
+  <article class="stat">
+    <p>Inventory valuation</p>
+    <strong>₹ {{ '{:,.2f}'.format(inventory_value) }}</strong>
+    <small>{{ products|length }} active products</small>
+  </article>
+  <article class="stat">
+    <p>Filtered sales total</p>
+    <strong>₹ {{ '{:,.2f}'.format(sales_total) }}</strong>
+    <small>{{ sales|length }} transactions</small>
+  </article>
+  <article class="stat">
+    <p>Low-stock items</p>
+    <strong>{{ products|selectattr('stock_status', 'in', ['low', 'out'])|list|length }}</strong>
+    <small>At or below threshold</small>
+  </article>
+</section>
+
+<section class="report-grid">
+  {% for kind, title, desc in [
+    ('inventory', 'Inventory valuation', 'Current quantities, unit costs, and total valuation in INR.'),
+    ('sales', 'Sales summary', 'Transaction references, cashier staff, dates, and total revenue.'),
+    ('low-stock', 'Low-stock report', 'Items requiring immediate replenishment.')
+  ] %}
+  <article class="panel report-card">
+    <span class="report-icon">↗</span>
+    <h2>{{ title }}</h2>
+    <p>{{ desc }}</p>
+    <div>
+      <a class="secondary-button" href="{{ url_for('main.export_report', kind=kind, fmt='csv') }}">CSV</a>
+      <a class="secondary-button" href="{{ url_for('main.export_report', kind=kind, fmt='pdf') }}">PDF</a>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+{% endblock %}

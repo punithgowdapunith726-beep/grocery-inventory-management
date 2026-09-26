@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="FreshTrack grocery inventory operations dashboard">
+  <title>{% block title %}FreshTrack{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+</head>
+<body>
+{% if current_user.is_authenticated %}
+<aside class="sidebar" id="sidebar">
+  <a class="brand" href="{{ url_for('main.dashboard') }}">
+    <img src="{{ url_for('static', filename='logo.jpg') }}" alt="FreshTrack" class="brand-logo">
+    <span><b>FreshTrack</b><small>Inventory OS</small></span>
+  </a>
+  <nav>
+    {% set links=[('main.dashboard','grid','Overview'),('main.products','box','Products'),('main.stock','swap','Stock'),('main.sales','receipt','Sales'),('main.categories','tag','Categories')] %}
+    {% for endpoint, icon, label in links %}
+    <a href="{{ url_for(endpoint) }}" class="{{ 'active' if request.endpoint == endpoint }}">
+      <i data-icon="{{ icon }}"></i><span>{{ label }}</span>
+    </a>
+    {% endfor %}
+    {% if current_user.role in ['admin','manager'] %}
+    <a href="{{ url_for('main.suppliers') }}" class="{{ 'active' if request.endpoint == 'main.suppliers' }}">
+      <i data-icon="truck"></i><span>Suppliers</span>
+    </a>
+    <p class="nav-label">INSIGHTS</p>
+    <a href="{{ url_for('main.reports') }}" class="{{ 'active' if request.endpoint == 'main.reports' }}">
+      <i data-icon="chart"></i><span>Reports</span>
+    </a>
+    {% endif %}
+    {% if current_user.role == 'admin' %}
+    <a href="{{ url_for('main.settings') }}" class="{{ 'active' if request.endpoint == 'main.settings' }}">
+      <i data-icon="settings"></i><span>Settings</span>
+    </a>
+    {% endif %}
+  </nav>
+  <div class="sidebar-foot">
+    <div class="avatar">{{ current_user.display_name[:1] }}</div>
+    <div><strong>{{ current_user.display_name }}</strong><small>{{ current_user.role|title }}</small></div>
+  </div>
+</aside>
+<div class="app">
+  <header class="topbar">
+    <button class="icon-button mobile-menu" aria-label="Open navigation" data-sidebar-toggle>☰</button>
+    <div class="global-search">
+      <span>⌕</span>
+      <input placeholder="Search inventory" data-global-search>
+      <kbd>⌘ K</kbd>
+    </div>
+    <div class="top-actions">
+      <button class="icon-button" title="Toggle theme" data-theme-toggle>◐</button>
+      <span class="status-dot"></span>
+      <span class="desktop-only">System healthy</span>
+      <form action="{{ url_for('auth.logout') }}" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="text-button">Sign out</button>
+      </form>
+    </div>
+  </header>
+  <main class="content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+      <div class="toast {{ category }}" role="status">{{ message }}<button aria-label="Dismiss">×</button></div>
+      {% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% else %}
+  {% block auth_content %}{% endblock %}
+{% endif %}
+<div class="modal-backdrop" data-modal-backdrop></div>
+</body>
+</html>

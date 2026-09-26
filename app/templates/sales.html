@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import field %}
+{% block title %}Sales · FreshTrack{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">TRANSACTIONS & BILLING</p>
+    <h1>Sales Portal</h1>
+    <p>Sell multiple products at a time, update stock instantly, and generate PDF sales receipts.</p>
+  </div>
+</div>
+
+{% if latest_sale %}
+<div class="toast success" style="margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <strong>Sale {{ latest_sale.reference }} completed successfully!</strong>
+    <span>Total: ₹ {{ '{:,.2f}'.format(latest_sale.total) }} ({{ latest_sale.items|sum(attribute='quantity') }} items)</span>
+  </div>
+  <a href="{{ url_for('main.sale_pdf', sale_id=latest_sale.id) }}" class="primary-button" style="text-decoration: none; padding: 0.5rem 1rem;">
+    📄 Download Receipt (PDF)
+  </a>
+</div>
+{% endif %}
+
+<section class="split-layout">
+  <form method="post" class="panel form-panel" id="posCartForm" style="overflow: hidden; max-width: 100%;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <header>
+      <div>
+        <h2>New Sale (Multi-Product)</h2>
+        <p>Add multiple items to the cart and generate a sale receipt.</p>
+      </div>
+    </header>
+
+    <div id="cartItemsContainer" style="display: flex; flex-direction: column; gap: 0.75rem;">
+      <div class="cart-item-card" style="background: var(--surface-2, #f8fafc); border: 1px solid var(--line, #dfe5df); border-radius: 8px; padding: 0.85rem; display: flex; flex-direction: column; gap: 0.6rem;">
+        <div>
+          <label style="margin: 0; font-weight: 700; font-size: 12px; display: block; color: var(--ink);">Product
+            <select name="product_id[]" class="product-select" required onchange="updateCartTotals()" style="width: 100%; max-width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px 10px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+              <option value="" data-price="0" data-qty="0">-- Select Product --</option>
+              {% for p in products %}
+              <option value="{{ p.id }}" data-price="{{ p.price }}" data-qty="{{ p.quantity }}">
+                {{ p.name }} (₹{{ p.price }} — {{ p.quantity }} {{ p.unit }} left)
+              </option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; align-items: end;">
+          <label style="margin: 0; font-size: 11px;">Qty
+            <input type="number" name="quantity[]" class="quantity-input" min="1" value="1" required oninput="updateCartTotals()" style="width: 100%; box-sizing: border-box; padding: 7px 8px;">
+          </label>
+          <label style="margin: 0; font-size: 11px;">Subtotal
+            <input type="text" class="line-total" value="₹ 0.00" readonly style="width: 100%; box-sizing: border-box; padding: 7px 8px; background: var(--surface); font-weight: 700; color: var(--primary);">
+          </label>
+          <button type="button" class="icon-button danger remove-row-btn" onclick="removeCartRow(this)" title="Remove item" style="margin-bottom: 1px;">×</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+      <button type="button" class="secondary-button" onclick="addCartRow()">+ Add Another Item</button>
+      <div style="text-align: right;">
+        <small style="display: block; color: var(--muted);">Grand Total</small>
+        <strong id="cartGrandTotal" style="font-size: 1.35rem; color: var(--primary);">₹ 0.00</strong>
+      </div>
+    </div>
+
+    <div style="margin-top: 1.25rem;">
+      <button type="submit" class="primary-button wide">Complete Sale & Print Receipt</button>
+    </div>
+  </form>
+
+  <div>
+    <form class="filterbar" method="get" action="{{ url_for('main.sales') }}">
+      <input type="date" name="start" value="{{ start }}" onchange="this.form.submit()" title="Start date">
+      <input type="date" name="end" value="{{ end }}" onchange="this.form.submit()" title="End date">
+      <a href="{{ url_for('main.sales', start='', end='') }}" class="secondary-button" style="text-decoration: none; padding: 0.5rem 0.75rem;" title="Show sales across all dates">All Sales</a>
+    </form>
+
+    <div class="table-shell">
+      <table>
+        <thead>
+          <tr>
+            <th>Reference</th>
+            <th>Date</th>
+            <th>Items</th>
+            <th>Staff</th>
+            <th>Total Amount</th>
+            <th>Receipt</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in sales %}
+          <tr>
+            <td><code>{{ s.reference }}</code></td>
+            <td>{{ s.created_at.strftime('%b %d, %Y %H:%M') }}</td>
+            <td>{{ s.items|sum(attribute='quantity') }}</td>
+            <td>{{ s.user.display_name }}</td>
+            <td><strong>₹ {{ '{:,.2f}'.format(s.total) }}</strong></td>
+            <td>
+              <a href="{{ url_for('main.sale_pdf', sale_id=s.id) }}" class="secondary-button" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; text-decoration: none;" title="Download PDF Receipt">
+                📄 PDF
+              </a>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="6"><div class="empty">No sales recorded in this date range.</div></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<template id="cartRowTemplate">
+  <div class="cart-item-card" style="background: var(--surface-2, #f8fafc); border: 1px solid var(--line, #dfe5df); border-radius: 8px; padding: 0.85rem; display: flex; flex-direction: column; gap: 0.6rem;">
+    <div>
+      <label style="margin: 0; font-weight: 700; font-size: 12px; display: block; color: var(--ink);">Product
+        <select name="product_id[]" class="product-select" required onchange="updateCartTotals()" style="width: 100%; max-width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px 10px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+          <option value="" data-price="0" data-qty="0">-- Select Product --</option>
+          {% for p in products %}
+          <option value="{{ p.id }}" data-price="{{ p.price }}" data-qty="{{ p.quantity }}">
+            {{ p.name }} (₹{{ p.price }} — {{ p.quantity }} {{ p.unit }} left)
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; align-items: end;">
+      <label style="margin: 0; font-size: 11px;">Qty
+        <input type="number" name="quantity[]" class="quantity-input" min="1" value="1" required oninput="updateCartTotals()" style="width: 100%; box-sizing: border-box; padding: 7px 8px;">
+      </label>
+      <label style="margin: 0; font-size: 11px;">Subtotal
+        <input type="text" class="line-total" value="₹ 0.00" readonly style="width: 100%; box-sizing: border-box; padding: 7px 8px; background: var(--surface); font-weight: 700; color: var(--primary);">
+      </label>
+      <button type="button" class="icon-button danger remove-row-btn" onclick="removeCartRow(this)" title="Remove item" style="margin-bottom: 1px;">×</button>
+    </div>
+  </div>
+</template>
+
+<script>
+function addCartRow() {
+  const container = document.getElementById('cartItemsContainer');
+  const template = document.getElementById('cartRowTemplate');
+  const clone = template.content.cloneNode(true);
+  container.appendChild(clone);
+  updateCartTotals();
+}
+
+function removeCartRow(btn) {
+  const container = document.getElementById('cartItemsContainer');
+  if (container.querySelectorAll('.cart-item-card').length > 1) {
+    btn.closest('.cart-item-card').remove();
+    updateCartTotals();
+  } else {
+    alert('At least one product item is required for a sale.');
+  }
+}
+
+function updateCartTotals() {
+  let grandTotal = 0;
+  const rows = document.querySelectorAll('.cart-item-card');
+  rows.forEach(row => {
+    const select = row.querySelector('.product-select');
+    const qtyInput = row.querySelector('.quantity-input');
+    const lineTotalInput = row.querySelector('.line-total');
+
+    const selectedOption = select.options[select.selectedIndex];
+    const price = parseFloat(selectedOption ? selectedOption.dataset.price : 0) || 0;
+    const qty = parseInt(qtyInput.value) || 0;
+
+    const lineTotal = price * qty;
+    lineTotalInput.value = '₹ ' + lineTotal.toFixed(2);
+    grandTotal += lineTotal;
+  });
+
+  document.getElementById('cartGrandTotal').textContent = '₹ ' + grandTotal.toFixed(2);
+}
+
+document.addEventListener('DOMContentLoaded', updateCartTotals);
+</script>
+{% endblock %}
